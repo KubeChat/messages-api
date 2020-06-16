@@ -2,6 +2,7 @@ import express from 'express';
 
 import { config } from './config/config';
 import { verifyToken } from './middlewares/jwt';
+import { IncomingMessage, OutgoingMessage } from './models'
 
 (async () => {
 
@@ -22,8 +23,19 @@ import { verifyToken } from './middlewares/jwt';
   
   io.use(verifyToken)
 
+  const activeSockets: any = {};
+
   io.on('connection', (socket: any) => {
-    console.log(socket.user.email)
+    const email: string = socket.user.email;
+    activeSockets[email] = socket;
+    socket.on('message', (incomingMessage: IncomingMessage) => {
+      const { to, text, attachmentUrl } = incomingMessage;
+      const outgoingMessage: OutgoingMessage = {from: socket.user.email, text, attachmentUrl};
+      const receiverSocket = activeSockets[to];
+      if (receiverSocket) {
+        receiverSocket.emit('message', outgoingMessage)
+      }
+    });
   })
 
   // Start the Server
