@@ -2,7 +2,7 @@ import express from 'express';
 
 import { config } from './config/config';
 import { verifyToken } from './middlewares/jwt';
-import { IncomingMessage, OutgoingMessage } from './models'
+import { Message } from './models/Message'
 
 (async () => {
 
@@ -28,14 +28,25 @@ import { IncomingMessage, OutgoingMessage } from './models'
   io.on('connection', (socket: any) => {
     const email: string = socket.user.email;
     activeSockets[email] = socket;
-    socket.on('message', (incomingMessage: IncomingMessage) => {
-      const { to, text, attachmentUrl } = incomingMessage;
-      const outgoingMessage: OutgoingMessage = {from: socket.user.email, text, attachmentUrl};
-      const receiverSocket = activeSockets[to];
+    socket.on('message', (message: Message) => {
+      const receiverSocket = activeSockets[message.to];
       if (receiverSocket) {
-        receiverSocket.emit('message', outgoingMessage)
+        receiverSocket.emit('message', message);
+      } else {
+        pub.publish('message', JSON.stringify(message));
       }
     });
+  })
+
+  const Redis = require('ioredis')
+  const sub = new Redis(config.redisPort, config.redisEndpoint);
+  const pub = new Redis(config.redisPort, config.redisEndpoint);
+
+  sub.subscribe('message');
+  sub.on('message', (channel: any, messageString: string) => {
+    const message: Message = JSON.parse(messageString);
+    const receiverSocket = activeSockets[message.to];
+    receiverSocket.emit('message', message);
   })
 
   // Start the Server
