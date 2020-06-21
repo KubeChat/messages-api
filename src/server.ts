@@ -9,6 +9,7 @@ import { Message } from './models/Message'
   const app = express();
   const http = require('http').createServer(app);
   const io = require('socket.io')(http, {
+    path: '/api/v0/messages',
     handlePreflightRequest: (req: any, res:any) => {
         const headers = {
             "Access-Control-Allow-Headers": "Content-Type, authorization",
@@ -27,6 +28,7 @@ import { Message } from './models/Message'
 
   io.on('connection', (socket: any) => {
     const email: string = socket.user.email;
+    console.log(email)
     activeSockets[email] = socket;
     socket.on('message', (message: Message) => {
       const receiverSocket = activeSockets[message.to];
